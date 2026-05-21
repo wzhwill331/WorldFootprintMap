@@ -53,6 +53,69 @@
       gap: 12px;
     }
 
+    /* ===== Search ===== */
+    .search-box {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .search-box input {
+      width: 180px;
+      padding: 6px 10px 6px 30px;
+      border: 1px solid #dadce0;
+      border-radius: 8px;
+      font-size: 13px;
+      outline: none;
+      transition: all 0.3s;
+      background: #f1f3f4;
+    }
+
+    .search-box input:focus {
+      width: 240px;
+      border-color: #1a73e8;
+      background: white;
+      box-shadow: 0 2px 8px rgba(26,115,232,0.15);
+    }
+
+    .search-box::before {
+      content: '🔍';
+      position: absolute;
+      left: 8px;
+      font-size: 13px;
+      pointer-events: none;
+    }
+
+    .search-results {
+      position: absolute;
+      top: 100%;
+      left: 0; right: 0;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+      margin-top: 4px;
+      max-height: 200px;
+      overflow-y: auto;
+      z-index: 2000;
+      display: none;
+    }
+
+    .search-result-item {
+      padding: 8px 12px;
+      cursor: pointer;
+      font-size: 13px;
+      color: #202124;
+      border-bottom: 1px solid #f1f3f4;
+    }
+
+    .search-result-item:last-child { border-bottom: none; }
+    .search-result-item:hover { background: #f1f3f4; }
+
+    .search-result-item small {
+      color: #9aa0a6;
+      font-size: 11px;
+    }
+
     /* ===== Stats Panel ===== */
     #stats {
       display: flex;
@@ -320,6 +383,8 @@
       .leaflet-popup-content { min-width: 240px; }
       .card { padding: 16px; }
       .btn { padding: 5px 10px; font-size: 12px; }
+      .search-box input { width: 120px; font-size: 12px; }
+      .search-box input:focus { width: 160px; }
     }
   </style>
 </head>
@@ -351,6 +416,10 @@
       <span id="titleText">My World Footprints</span>
     </div>
     <div class="topbar-right">
+      <div class="search-box">
+        <input type="text" id="searchInput" placeholder="Search city..." oninput="onSearch(event)" onkeydown="if(event.key==='Enter')doSearch()" onfocus="onSearch(event)" />
+        <div class="search-results" id="searchResults"></div>
+      </div>
       <div id="stats">
         <div class="stat-item">
           <span class="stat-num" id="cityCount">0</span>
@@ -418,6 +487,7 @@
         importNothing: 'No new footprints to import',
         empty: 'Click anywhere on the map to add your first footprint!',
         quote: '"The world is a book and those who do not travel read only one page." — Saint Augustine',
+        search: 'Search city...',
       },
       zh: {
         title: '我的世界足迹',
@@ -440,6 +510,7 @@
         importNothing: '没有新的足迹需要导入',
         empty: '点击地图任意位置，添加你的第一条足迹！',
         quote: '"世界是一本书，不旅行的人只读了其中一页。" — 圣奥古斯丁',
+        search: '搜索城市...',
       }
     };
 
@@ -768,6 +839,70 @@
       await renderMarkers();
     }
 
+    // ===== Search =====
+    let searchTimer = null;
+    function onSearch(e) {
+      const q = e.target.value.trim().toLowerCase();
+      const resultsEl = document.getElementById('searchResults');
+      if (!q) { resultsEl.style.display = 'none'; return; }
+
+      // First search existing markers
+      const localHits = markers.filter(m =>
+        m.city.toLowerCase().includes(q) || m.country.toLowerCase().includes(q)
+      ).slice(0, 5).map(m => ({
+        lat: m.lat, lng: m.lng,
+        label: `${m.city}${m.country ? ', ' + m.country : ''}`,
+        sub: m.date,
+        type: 'local'
+      }));
+
+      // Also geocode from Nominatim
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(async () => {
+        try {
+          const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(e.target.value)}&limit=5`);
+          const geoHits = (await resp.json()).map(r => ({
+            lat: parseFloat(r.lat), lng: parseFloat(r.lon),
+            label: r.display_name.split(',').slice(0, 2).join(','),
+            sub: r.type,
+            type: 'geo'
+          }));
+          showSearchResults([...localHits, ...geoHits]);
+        } catch(err) {
+          showSearchResults(localHits);
+        }
+      }, 400);
+
+      showSearchResults(localHits);
+    }
+
+    function showSearchResults(results) {
+      const el = document.getElementById('searchResults');
+      if (results.length === 0) { el.style.display = 'none'; return; }
+      el.innerHTML = results.map((r, i) =>
+        `<div class="search-result-item" onclick="jumpTo(${r.lat}, ${r.lng})">${r.label}<br><small>${r.sub}</small></div>`
+      ).join('');
+      el.style.display = 'block';
+    }
+
+    function jumpTo(lat, lng) {
+      document.getElementById('searchResults').style.display = 'none';
+      document.getElementById('searchInput').value = '';
+      map.flyTo([lat, lng], 6, { duration: 1.2 });
+      // Open popup if there's a marker here
+      const existing = markers.find(m => Math.abs(m.lat - lat) < 0.01 && Math.abs(m.lng - lng) < 0.01);
+      if (existing) {
+        setTimeout(() => showDetail(existing), 1300);
+      }
+    }
+
+    // Close search results on click outside
+    document.addEventListener('click', function(e) {
+      if (!e.target.closest('.search-box')) {
+        document.getElementById('searchResults').style.display = 'none';
+      }
+    });
+
     // ===== Map Click =====
     map.on('click', function(e) {
       showAddForm(e.latlng.lat, e.latlng.lng);
@@ -845,6 +980,7 @@
       document.getElementById('quote').textContent = t.quote;
       document.getElementById('btnExport').innerHTML = l === 'en' ? '📤 Export' : '📤 导出';
       document.getElementById('btnImport').innerHTML = l === 'en' ? '📥 Import' : '📥 导入';
+      document.getElementById('searchInput').placeholder = t.search;
       updateStats();
     }
 
