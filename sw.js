@@ -20,7 +20,7 @@ self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
 
   // Cache tile images aggressively (map tiles)
-  if (url.hostname.includes('cartocdn.com') || url.hostname.includes('openstreetmap.org')) {
+  if (url.hostname.includes('tianditu.gov.cn') || url.hostname.includes('openstreetmap.org') || url.hostname.includes('cartocdn.com')) {
     e.respondWith(
       caches.match(e.request).then(r => {
         if (r) return r;

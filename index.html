@@ -442,6 +442,12 @@
 
   <!-- Map -->
   <div id="map"></div>
+  <div id="loading" style="position:fixed;top:56px;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.85);z-index:998;transition:opacity 0.5s;">
+    <div style="text-align:center;">
+      <div style="font-size:48px;margin-bottom:12px;">🌍</div>
+      <div style="color:#5f6368;font-size:15px;">Loading map...</div>
+    </div>
+  </div>
 
   <!-- Quote -->
   <div id="quote"></div>
@@ -595,11 +601,30 @@
 
     L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
-      subdomains: 'abcd',
-      maxZoom: 20
-    }).addTo(map);
+    // Try multiple tile providers for best speed
+    const tileProviders = [
+      // Tianditu - fastest in China
+      L.tileLayer('http://t{s}.tianditu.gov.cn/vec_w/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=vec&STYLE=default&TILEMATRIXSET=w&FORMAT=tiles&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}&tk=1d109683f4d64198e37a38c442d68111', {
+        subdomains: '12345678',
+        maxZoom: 18,
+        attribution: 'Tianditu'
+      }),
+      // OSM as fallback
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        subdomains: 'abc',
+        maxZoom: 19,
+        attribution: 'OSM'
+      })
+    ];
+
+    // Load Tianditu first, fallback to OSM
+    tileProviders[0].addTo(map);
+    tileProviders[0].on('tileerror', function() {
+      if (!map.hasLayer(tileProviders[1])) {
+        map.removeLayer(tileProviders[0]);
+        tileProviders[1].addTo(map);
+      }
+    });
 
     markerLayer = L.layerGroup().addTo(map);
 
@@ -986,6 +1011,15 @@
       document.getElementById('searchInput').placeholder = t.search;
       updateStats();
     }
+
+    // ===== Hide loading =====
+    map.whenReady(() => {
+      setTimeout(() => {
+        const ld = document.getElementById('loading');
+        ld.style.opacity = '0';
+        setTimeout(() => ld.style.display = 'none', 500);
+      }, 800);
+    });
 
     // ===== Init =====
     renderMarkers();
