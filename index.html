@@ -10,11 +10,12 @@
   <link rel="dns-prefetch" href="https://a.tile.openstreetmap.org">
   <link rel="dns-prefetch" href="https://cdn.bootcdn.net">
   <link rel="preconnect" href="https://cdn.bootcdn.net" crossorigin>
+  <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
   <title>My World Footprints</title>
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
   <script src="https://cdn.bootcdn.net/ajax/libs/three.js/0.160.0/three.min.js"></script>
-  <script src="https://cdn.bootcdn.net/ajax/libs/globe.gl/2.31.1/globe.gl.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/globe.gl@2.31.1/dist/globe.gl.min.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -402,6 +403,7 @@
       .btn { padding: 5px 10px; font-size: 12px; }
       .search-box input { width: 120px; font-size: 12px; }
       .search-box input:focus { width: 160px; }
+      #btnGlobe { width: 28px; height: 28px; font-size: 15px; }
     }
   </style>
 </head>
@@ -460,7 +462,7 @@
 
   <!-- Map -->
   <div id="map"></div>
-  <div id="globe-container" style="position:fixed;top:56px;left:0;right:0;bottom:0;display:none;z-index:500;"></div>
+  <div id="globe-container" style="position:fixed;top:56px;left:0;right:0;bottom:0;display:none;z-index:500;background:#000;"></div>
   <div id="loading" style="position:fixed;top:56px;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.85);z-index:998;transition:opacity 0.5s;">
     <div style="text-align:center;">
       <div style="font-size:48px;margin-bottom:12px;">🌍</div>
@@ -1084,22 +1086,27 @@
     }
 
     function initGlobe() {
-      globe = Globe()
-        .globeImageUrl('//unpkg.com/three-globe/example/img/earth-night.jpg')
-        .backgroundImageUrl('//unpkg.com/three-globe/example/img/night-sky.png')
-        .width(window.innerWidth)
-        .height(window.innerHeight - 56)
-        (document.getElementById('globe-container'));
+      try {
+        globe = Globe()
+          .globeImageUrl('//unpkg.com/three-globe/example/img/earth-night.jpg')
+          .backgroundImageUrl('//unpkg.com/three-globe/example/img/night-sky.png')
+          .width(window.innerWidth)
+          .height(window.innerHeight - 56)
+          (document.getElementById('globe-container'));
 
-      // Auto-rotate
-      globe.controls().autoRotate = true;
-      globe.controls().autoRotateSpeed = 0.5;
+        // Auto-rotate
+        globe.controls().autoRotate = true;
+        globe.controls().autoRotateSpeed = 0.5;
 
-      window.addEventListener('resize', () => {
-        if (globe) {
-          globe.width(window.innerWidth).height(window.innerHeight - 56);
-        }
-      });
+        window.addEventListener('resize', () => {
+          if (globe && isGlobeView) {
+            globe.width(window.innerWidth).height(window.innerHeight - 56);
+          }
+        });
+      } catch(err) {
+        console.error('Globe init failed:', err);
+        alert('Globe failed to load. Check console for details.');
+      }
     }
 
     function updateGlobePoints() {
