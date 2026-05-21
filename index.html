@@ -795,8 +795,8 @@
           <div class="detail-meta">📅 ${m.date}</div>
           ${m.note ? `<div class="detail-note">${m.note}</div>` : ''}
           <div class="detail-actions">
-            <button class="btn btn-outline" onclick='editFootprint("${m.id}")'>✏️ ${t.edit}</button>
-            <button class="btn btn-danger" onclick='deleteFootprint("${m.id}")'>🗑️ ${t.delete}</button>
+            <button class="btn btn-outline" onclick='event.stopPropagation();editFootprint("${m.id}")'>✏️ ${t.edit}</button>
+            <button class="btn btn-danger" onclick='event.stopPropagation();deleteFootprint("${m.id}")'>🗑️ ${t.delete}</button>
           </div>
         </div>
       `;
@@ -963,15 +963,11 @@
     });
 
     // ===== Map Click =====
-    let popupOpenTime = 0;
     map.on('click', function(e) {
-      // Prevent map click from firing right after popup close
-      if (Date.now() - popupOpenTime < 300) return;
+      // Don't open new popup if one is already open
+      const popup = map.getPopup();
+      if (popup && popup.isOpen()) return;
       showAddForm(e.latlng.lat, e.latlng.lng);
-    });
-
-    map.on('popupopen', function() {
-      popupOpenTime = Date.now();
     });
 
     // ===== Export =====
