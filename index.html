@@ -13,6 +13,8 @@
   <title>My World Footprints</title>
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+  <script src="https://cdn.bootcdn.net/ajax/libs/three.js/0.160.0/three.min.js"></script>
+  <script src="https://cdn.bootcdn.net/ajax/libs/globe.gl/2.31.1/globe.gl.min.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -373,6 +375,17 @@
       color: white;
     }
 
+    #btnGlobe {
+      width: 34px;
+      height: 34px;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      border-radius: 50%;
+    }
+
     /* ===== Import ===== */
     #importInput { display: none; }
 
@@ -438,6 +451,7 @@
         <button class="lang-btn active" id="langEn" onclick="setLang('en')">EN</button>
         <button class="lang-btn" id="langZh" onclick="setLang('zh')">中</button>
       </div>
+      <button class="btn btn-primary" onclick="toggleGlobe()" id="btnGlobe" title="Toggle 3D Globe">🌐</button>
       <button class="btn btn-outline" onclick="exportData()" id="btnExport">📤 Export</button>
       <button class="btn btn-outline" onclick="document.getElementById('importInput').click()" id="btnImport">📥 Import</button>
       <input type="file" id="importInput" accept=".json" onchange="importData(event)">
@@ -446,6 +460,7 @@
 
   <!-- Map -->
   <div id="map"></div>
+  <div id="globe-container" style="position:fixed;top:56px;left:0;right:0;bottom:0;display:none;z-index:500;"></div>
   <div id="loading" style="position:fixed;top:56px;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.85);z-index:998;transition:opacity 0.5s;">
     <div style="text-align:center;">
       <div style="font-size:48px;margin-bottom:12px;">🌍</div>
@@ -654,6 +669,7 @@
         marker.on('click', () => showDetail(m));
       });
       updateStats();
+      if (isGlobeView) updateGlobePoints();
     }
 
     function updateStats() {
@@ -1040,6 +1056,75 @@
         setTimeout(() => ld.style.display = 'none', 500);
       }, 800);
     });
+
+    // ===== Globe =====
+    let globe = null;
+    let isGlobeView = false;
+
+    function toggleGlobe() {
+      isGlobeView = !isGlobeView;
+      const mapEl = document.getElementById('map');
+      const globeEl = document.getElementById('globe-container');
+      const btn = document.getElementById('btnGlobe');
+
+      if (isGlobeView) {
+        mapEl.style.display = 'none';
+        globeEl.style.display = 'block';
+        btn.textContent = '🗺️';
+        btn.title = 'Back to flat map';
+        if (!globe) initGlobe();
+        updateGlobePoints();
+      } else {
+        globeEl.style.display = 'none';
+        mapEl.style.display = 'block';
+        btn.textContent = '🌐';
+        btn.title = 'Toggle 3D Globe';
+        map.invalidateSize();
+      }
+    }
+
+    function initGlobe() {
+      globe = Globe()
+        .globeImageUrl('//unpkg.com/three-globe/example/img/earth-night.jpg')
+        .backgroundImageUrl('//unpkg.com/three-globe/example/img/night-sky.png')
+        .width(window.innerWidth)
+        .height(window.innerHeight - 56)
+        (document.getElementById('globe-container'));
+
+      // Auto-rotate
+      globe.controls().autoRotate = true;
+      globe.controls().autoRotateSpeed = 0.5;
+
+      window.addEventListener('resize', () => {
+        if (globe) {
+          globe.width(window.innerWidth).height(window.innerHeight - 56);
+        }
+      });
+    }
+
+    function updateGlobePoints() {
+      if (!globe || !isGlobeView) return;
+      const points = markers.map(m => ({
+        lat: m.lat,
+        lng: m.lng,
+        size: 0.8,
+        color: '#1a73e8',
+        label: `${m.city}${m.country ? ', ' + m.country : ''}`
+      }));
+      globe
+        .pointsData(points)
+        .pointLat('lat')
+        .pointLng('lng')
+        .pointAltitude(0.01)
+        .pointRadius('size')
+        .pointColor('color')
+        .pointLabel(d => `<div style='background:white;padding:6px 10px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.2);font-size:13px;'>📍 ${d.label}</div>`) 
+        .onPointClick(d => {
+          // Switch to flat map and fly to the point
+          if (isGlobeView) toggleGlobe();
+          setTimeout(() => map.flyTo([d.lat, d.lng], 6, { duration: 1 }), 300);
+        });
+    }
 
     // ===== Init =====
     renderMarkers();
