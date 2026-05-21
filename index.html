@@ -697,7 +697,7 @@
             <img id="photoPreview" class="photo-preview" style="display:none" />
           </div>
           <div class="form-actions">
-            <button class="btn btn-outline" onclick="map.closePopup()">${t.cancel}</button>
+            <button class="btn btn-outline" onclick="event.stopPropagation();map.closePopup()">${t.cancel}</button>
             <button class="btn btn-primary" onclick="saveFootprint(${lat}, ${lng})">${t.save}</button>
           </div>
         </div>
@@ -827,7 +827,7 @@
             ${photoPreviewHtml}
           </div>
           <div class="form-actions">
-            <button class="btn btn-outline" onclick="map.closePopup()">${t.cancel}</button>
+            <button class="btn btn-outline" onclick="event.stopPropagation();map.closePopup()">${t.cancel}</button>
             <button class="btn btn-primary" onclick="updateFootprint('${id}')">${t.save}</button>
           </div>
         </div>
@@ -945,8 +945,15 @@
     });
 
     // ===== Map Click =====
+    let popupOpenTime = 0;
     map.on('click', function(e) {
+      // Prevent map click from firing right after popup close
+      if (Date.now() - popupOpenTime < 300) return;
       showAddForm(e.latlng.lat, e.latlng.lng);
+    });
+
+    map.on('popupopen', function() {
+      popupOpenTime = Date.now();
     });
 
     // ===== Export =====
