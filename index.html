@@ -455,13 +455,16 @@
       if (input === ACCESS_CODE) {
         document.getElementById('gate').style.display = 'none';
         localStorage.setItem('gatePassed', '1');
+        localStorage.setItem('gateCode', ACCESS_CODE);
       } else {
         document.getElementById('gateError').style.display = 'block';
       }
     }
-    // Auto-pass if already entered this session
-    if (localStorage.getItem('gatePassed') === '1') {
+    // Auto-pass only if same password as before
+    if (localStorage.getItem('gatePassed') === '1' && localStorage.getItem('gateCode') === ACCESS_CODE) {
       document.getElementById('gate').style.display = 'none';
+    } else {
+      localStorage.removeItem('gatePassed');
     }
 
     // ===== i18n =====
@@ -990,7 +993,17 @@
 
     // ===== Service Worker for PWA =====
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('sw.js').catch(() => {});
+      navigator.serviceWorker.register('sw.js').then(reg => {
+        reg.addEventListener('updatefound', () => {
+          const newSW = reg.installing;
+          newSW.addEventListener('statechange', () => {
+            if (newSW.state === 'activated') location.reload();
+          });
+        });
+      }).catch(() => {});
+      navigator.serviceWorker.addEventListener('message', e => {
+        if (e.data && e.data.type === 'FORCE_RELOAD') location.reload();
+      });
     }
   </script>
 </body>
