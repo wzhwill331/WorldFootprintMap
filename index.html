@@ -8,14 +8,14 @@
   <meta name="theme-color" content="#ffffff">
   <link rel="dns-prefetch" href="https://webrd01.is.autonavi.com">
   <link rel="dns-prefetch" href="https://a.tile.openstreetmap.org">
+  <link rel="dns-prefetch" href="https://b.tile.openstreetmap.org">
   <link rel="dns-prefetch" href="https://cdn.bootcdn.net">
+  <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
   <link rel="preconnect" href="https://cdn.bootcdn.net" crossorigin>
-  <link rel="dns-prefetch" href="https://unpkg.com">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <title>My World Footprints</title>
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
-  <script src="https://unpkg.com/three@0.160.0/build/three.js"></script>
-  <script src="https://unpkg.com/globe.gl"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -387,6 +387,78 @@
       border-radius: 50%;
     }
 
+    /* ===== 3D Globe ===== */
+    #globe-container {
+      position: fixed;
+      top: 56px;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      display: none;
+      z-index: 500;
+      overflow: hidden;
+      background:
+        linear-gradient(150deg, #030611 0%, #07101d 42%, #120b1d 100%);
+      color: white;
+    }
+
+    #globe-viz {
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: grab;
+      touch-action: none;
+    }
+
+    #globe-viz:active { cursor: grabbing; }
+
+    #globe-viz canvas {
+      display: block;
+      outline: none;
+    }
+
+    .globe-panel {
+      position: absolute;
+      left: 18px;
+      bottom: 18px;
+      max-width: min(360px, calc(100% - 36px));
+      padding: 14px 16px;
+      border: 1px solid rgba(170,216,255,0.18);
+      border-radius: 8px;
+      background: rgba(4, 10, 18, 0.72);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      box-shadow: 0 18px 52px rgba(0,0,0,0.34);
+      pointer-events: none;
+    }
+
+    .globe-count {
+      font-size: 26px;
+      font-weight: 700;
+      line-height: 1;
+      color: #ffffff;
+    }
+
+    .globe-caption {
+      margin-top: 6px;
+      font-size: 13px;
+      line-height: 1.45;
+      color: rgba(255,255,255,0.76);
+    }
+
+    .globe-tip {
+      position: absolute;
+      right: 18px;
+      bottom: 18px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(170,216,255,0.14);
+      background: rgba(4, 10, 18, 0.48);
+      color: rgba(220,238,255,0.76);
+      font-size: 12px;
+      pointer-events: none;
+    }
+
     /* ===== Import ===== */
     #importInput { display: none; }
 
@@ -404,6 +476,10 @@
       .search-box input { width: 120px; font-size: 12px; }
       .search-box input:focus { width: 160px; }
       #btnGlobe { width: 28px; height: 28px; font-size: 15px; }
+      #globe-container { top: 50px; }
+      .globe-panel { left: 12px; right: 12px; bottom: 12px; max-width: none; padding: 12px 14px; }
+      .globe-count { font-size: 22px; }
+      .globe-tip { display: none; }
     }
   </style>
 </head>
@@ -462,7 +538,14 @@
 
   <!-- Map -->
   <div id="map"></div>
-  <div id="globe-container" style="position:fixed;top:56px;left:0;right:0;bottom:0;display:none;z-index:500;background:#000;"></div>
+  <div id="globe-container">
+    <div id="globe-viz" aria-label="3D footprint globe"></div>
+    <div class="globe-panel">
+      <div class="globe-count" id="globeCount">0 footprints</div>
+      <div class="globe-caption" id="globeCaption">Drag the globe to revisit every place.</div>
+    </div>
+    <div class="globe-tip">Drag to rotate</div>
+  </div>
   <div id="loading" style="position:fixed;top:56px;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.85);z-index:998;transition:opacity 0.5s;">
     <div style="text-align:center;">
       <div style="font-size:48px;margin-bottom:12px;">🌍</div>
@@ -474,6 +557,7 @@
   <div id="quote"></div>
 
   <script src="https://cdn.bootcdn.net/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/globe.gl"></script>
   <script>
     // ===== Password Gate =====
     const ACCESS_CODE = 'Sara'; // Change this to any code you want
@@ -622,30 +706,30 @@
 
     L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-    // Gaode (AutoNavi) - fast in China, used for low zoom
+    // Gaode - fast in China, all zoom levels
     const gaodeLayer = L.tileLayer('https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}', {
       subdomains: ['1', '2', '3', '4'],
-      minZoom: 2,
-      maxZoom: 8,
+      maxZoom: 18,
       attribution: '&copy; 高德地图 AutoNavi'
     }).addTo(map);
 
-    // OpenStreetMap - global detail for high zoom
+    // OSM - global detail for foreign areas
     const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       subdomains: 'abc',
       maxZoom: 19,
       attribution: '&copy; OpenStreetMap'
     });
 
-    // Auto-switch: Gaode for zoom <= 8, OSM for zoom > 8
-    map.on('zoomend', function() {
-      const z = map.getZoom();
-      if (z > 8 && !map.hasLayer(osmLayer)) {
-        map.removeLayer(gaodeLayer);
-        osmLayer.addTo(map);
-      } else if (z <= 8 && !map.hasLayer(gaodeLayer)) {
+    // Auto-switch: Gaode in China, OSM abroad
+    map.on('moveend', function() {
+      const center = map.getCenter();
+      const inChina = center.lat >= 3 && center.lat <= 54 && center.lng >= 73 && center.lng <= 135;
+      if (inChina && !map.hasLayer(gaodeLayer)) {
         map.removeLayer(osmLayer);
         gaodeLayer.addTo(map);
+      } else if (!inChina && !map.hasLayer(osmLayer)) {
+        map.removeLayer(gaodeLayer);
+        osmLayer.addTo(map);
       }
     });
 
@@ -893,6 +977,7 @@
 
     // ===== Search =====
     let searchTimer = null;
+
     function onSearch(e) {
       const q = e.target.value.trim().toLowerCase();
       const resultsEl = document.getElementById('searchResults');
@@ -1055,9 +1140,57 @@
       }, 800);
     });
 
-    // ===== Globe =====
-    let globe = null;
+    // ===== Globe (Globe.gl) =====
     let isGlobeView = false;
+    const globeState = {
+      globe: null,
+      container: null,
+      ready: false,
+      autoRotate: true
+    };
+
+    function initGlobe() {
+      if (globeState.ready) return;
+      const container = document.getElementById('globe-viz');
+      globeState.container = container;
+
+      if (!window.Globe) {
+        container.innerHTML = '<div style="height:100%;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.78);font-size:14px;text-align:center;padding:24px;">3D globe library failed to load. Check your network and refresh.</div>';
+        updateGlobeHud();
+        globeState.ready = true;
+        return;
+      }
+
+      const globe = Globe()(container)
+        .backgroundColor('rgba(0,0,0,0)')
+        .globeImageUrl('https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-blue-marble.jpg')
+        .bumpImageUrl('https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-topology.png')
+        .showAtmosphere(true)
+        .atmosphereColor('#77d5ff')
+        .atmosphereAltitude(0.18)
+        .pointAltitude(d => d.size)
+        .pointRadius(d => d.radius)
+        .pointResolution(24)
+        .pointColor(d => d.color)
+        .pointsMerge(false)
+        .pointLabel(d => `<div style="background:rgba(4,10,18,0.86);border:1px solid rgba(170,216,255,0.22);color:white;padding:7px 10px;border-radius:8px;font:13px 'Segoe UI',sans-serif;box-shadow:0 12px 30px rgba(0,0,0,0.26);">${d.label}</div>`)
+        .onPointClick(d => openGlobeFootprint(d.footprint));
+
+      const controls = globe.controls();
+      controls.autoRotate = globeState.autoRotate;
+      controls.autoRotateSpeed = 0.55;
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.08;
+      controls.minDistance = 180;
+      controls.maxDistance = 520;
+
+      globe.pointOfView({ lat: 22, lng: 112, altitude: 2.2 }, 0);
+      globeState.globe = globe;
+      globeState.ready = true;
+      window.addEventListener('resize', resizeGlobe);
+      resizeGlobe();
+      updateGlobePoints();
+    }
 
     function toggleGlobe() {
       isGlobeView = !isGlobeView;
@@ -1066,12 +1199,13 @@
       const btn = document.getElementById('btnGlobe');
 
       if (isGlobeView) {
+        initGlobe();
         mapEl.style.display = 'none';
         globeEl.style.display = 'block';
-        btn.textContent = '🗺️';
+        btn.textContent = '3D';
         btn.title = 'Back to flat map';
-        if (!globe) initGlobe();
         updateGlobePoints();
+        resizeGlobe();
       } else {
         globeEl.style.display = 'none';
         mapEl.style.display = 'block';
@@ -1081,52 +1215,49 @@
       }
     }
 
-    function initGlobe() {
-      try {
-        globe = Globe()
-          .globeImageUrl('//unpkg.com/three-globe/example/img/earth-night.jpg')
-          .backgroundImageUrl('//unpkg.com/three-globe/example/img/night-sky.png')
-          .width(window.innerWidth)
-          .height(window.innerHeight - 56)
-          (document.getElementById('globe-container'));
+    function resizeGlobe() {
+      if (!globeState.globe || !globeState.container) return;
+      const rect = globeState.container.getBoundingClientRect();
+      globeState.globe.width(Math.max(1, Math.round(rect.width)));
+      globeState.globe.height(Math.max(1, Math.round(rect.height)));
+    }
 
-        // Auto-rotate
-        globe.controls().autoRotate = true;
-        globe.controls().autoRotateSpeed = 0.5;
-
-        window.addEventListener('resize', () => {
-          if (globe && isGlobeView) {
-            globe.width(window.innerWidth).height(window.innerHeight - 56);
-          }
-        });
-      } catch(err) {
-        console.error('Globe init failed:', err);
-        alert('Globe failed to load. Check console for details.');
-      }
+    function updateGlobeHud() {
+      const countEl = document.getElementById('globeCount');
+      const captionEl = document.getElementById('globeCaption');
+      if (!countEl || !captionEl) return;
+      const count = markers.length;
+      countEl.textContent = `${count} ${count === 1 ? 'footprint' : 'footprints'}`;
+      captionEl.textContent = count
+        ? 'Each light marks a place saved on the map. Drag the globe to turn the journey.'
+        : 'Add footprints on the map, then return here to see the journey light up.';
     }
 
     function updateGlobePoints() {
-      if (!globe || !isGlobeView) return;
-      const points = markers.map(m => ({
+      if (!globeState.globe) {
+        updateGlobeHud();
+        return;
+      }
+      const points = markers.map((m, i) => ({
         lat: m.lat,
         lng: m.lng,
-        size: 0.8,
-        color: '#1a73e8',
-        label: `${m.city}${m.country ? ', ' + m.country : ''}`
+        radius: 0.32 + Math.min(0.26, markers.length * 0.01),
+        size: 0.012 + (i % 3) * 0.004,
+        color: i % 2 === 0 ? 'rgba(255, 232, 132, 0.95)' : 'rgba(91, 214, 255, 0.9)',
+        label: `${m.city || 'Footprint'}${m.country ? ', ' + m.country : ''}`,
+        footprint: m
       }));
-      globe
-        .pointsData(points)
-        .pointLat('lat')
-        .pointLng('lng')
-        .pointAltitude(0.01)
-        .pointRadius('size')
-        .pointColor('color')
-        .pointLabel(d => `<div style='background:white;padding:6px 10px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.2);font-size:13px;'>📍 ${d.label}</div>`) 
-        .onPointClick(d => {
-          // Switch to flat map and fly to the point
-          if (isGlobeView) toggleGlobe();
-          setTimeout(() => map.flyTo([d.lat, d.lng], 6, { duration: 1 }), 300);
-        });
+      globeState.globe.pointsData(points);
+      updateGlobeHud();
+    }
+
+    function openGlobeFootprint(m) {
+      if (!m) return;
+      toggleGlobe();
+      setTimeout(() => {
+        map.flyTo([m.lat, m.lng], 6, { duration: 1 });
+        setTimeout(() => showDetail(m), 900);
+      }, 250);
     }
 
     // ===== Init =====
