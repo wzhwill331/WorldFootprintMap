@@ -808,6 +808,7 @@
         .setLatLng([lat, lng])
         .setContent(html)
         .openOn(map);
+      currentPopup = map._popup;
     }
 
     // ===== Photo =====
@@ -1042,16 +1043,17 @@
 
     // ===== Cleanup on popup close =====
     map.on('popupclose', function() {
+      currentPopup = null;
       photoBase64 = null;
       const card = document.querySelector('.leaflet-popup-content');
       if (card) card.innerHTML = '';
     });
 
     // ===== Map Click =====
+    let currentPopup = null;
     map.on('click', function(e) {
       // Don't open new popup if one is already open
-      const popup = map.getPopup();
-      if (popup && popup.isOpen()) return;
+      if (currentPopup && currentPopup.isOpen()) return;
       showAddForm(e.latlng.lat, e.latlng.lng);
     });
 
