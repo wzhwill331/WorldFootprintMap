@@ -559,6 +559,22 @@
   <div id="quote"></div>
   <div id="credit" style="position:fixed;top:68px;right:20px;font-size:16px;font-weight:700;color:#202124;z-index:999;">Made for Sara</div>
 
+  <!-- Splash Screen -->
+  <div id="splash" style="
+    position: fixed; inset: 0; z-index: 9998;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: none; align-items: center; justify-content: center;
+    flex-direction: column; gap: 16px;
+    opacity: 0; transition: opacity 0.8s ease;
+  ">
+    <div style="font-size: 52px;">🌍</div>
+    <div style="color: white; font-size: 20px; font-weight: 700; letter-spacing: 1px;">My World Footprints</div>
+    <div style="width: 40px; height: 2px; background: rgba(255,255,255,0.4); border-radius: 1px;"></div>
+    <div style="color: rgba(255,255,255,0.75); font-size: 14px; text-align: center; line-height: 1.8;">
+      献给耐心、善良、博学、乐观的Sara老师 ❤️
+    </div>
+  </div>
+
   <script src="https://cdn.bootcdn.net/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/globe.gl"></script>
   <script>
@@ -577,6 +593,14 @@
     // Auto-pass only if same password as before
     if (localStorage.getItem('gatePassed') === '1' && localStorage.getItem('gateCode') === ACCESS_CODE) {
       document.getElementById('gate').style.display = 'none';
+      // Show splash for returning users
+      const splash = document.getElementById('splash');
+      splash.style.display = 'flex';
+      requestAnimationFrame(() => { splash.style.opacity = '1'; });
+      setTimeout(() => {
+        splash.style.opacity = '0';
+        setTimeout(() => { splash.style.display = 'none'; }, 800);
+      }, 2000);
     } else {
       localStorage.removeItem('gatePassed');
     }
@@ -1044,26 +1068,21 @@
       }
     });
 
-    // ===== Cleanup on popup close =====
+    let lastPopupClose = 0;
     map.on('popupclose', function() {
       currentPopup = null;
       photoBase64 = null;
+      lastPopupClose = Date.now();
       const card = document.querySelector('.leaflet-popup-content');
       if (card) card.innerHTML = '';
     });
 
     // ===== Map Click =====
-    let popupOpen = false;
     map.on('click', function(e) {
-      if (popupOpen) {
-        map.closePopup();
-        popupOpen = false;
-        return;
-      }
+      // If a popup was just closed (within 100ms), don't open a new one
+      if (Date.now() - lastPopupClose < 100) return;
       showAddForm(e.latlng.lat, e.latlng.lng);
     });
-    map.on('popupopen', function() { popupOpen = true; });
-    map.on('popupclose', function() { popupOpen = false; });
 
     // ===== Export =====
     async function exportData() {
