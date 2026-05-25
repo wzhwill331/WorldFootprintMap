@@ -480,7 +480,7 @@
       .globe-panel { left: 12px; right: 12px; bottom: 12px; max-width: none; padding: 12px 14px; }
       .globe-count { font-size: 22px; }
       .globe-tip { display: none; }
-      #credit { bottom: 40px; right: 12px; font-size: 10px; }
+      #credit { top: 56px; right: 12px; font-size: 11px; }
     }
   </style>
 </head>
@@ -557,7 +557,7 @@
 
   <!-- Quote -->
   <div id="quote"></div>
-  <div id="credit" style="position:fixed;bottom:16px;right:20px;font-size:11px;color:#9aa0a6;z-index:999;">Made with ❤️ for Sara</div>
+  <div id="credit" style="position:fixed;top:68px;right:20px;font-size:16px;font-weight:700;color:#202124;z-index:999;">Made for Sara</div>
 
   <script src="https://cdn.bootcdn.net/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/globe.gl"></script>
@@ -1053,12 +1053,17 @@
     });
 
     // ===== Map Click =====
-    let currentPopup = null;
+    let popupOpen = false;
     map.on('click', function(e) {
-      // Don't open new popup if one is already open
-      if (currentPopup && currentPopup.isOpen()) return;
+      if (popupOpen) {
+        map.closePopup();
+        popupOpen = false;
+        return;
+      }
       showAddForm(e.latlng.lat, e.latlng.lng);
     });
+    map.on('popupopen', function() { popupOpen = true; });
+    map.on('popupclose', function() { popupOpen = false; });
 
     // ===== Export =====
     async function exportData() {
