@@ -1,0 +1,1316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="theme-color" content="#ffffff">
+  <title>My World Footprints</title>
+  <link rel="stylesheet" href="libs/leaflet.min.css" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background: #f0f4f8;
+      overflow: hidden;
+      height: 100vh;
+      height: 100dvh;
+    }
+
+    /* ===== Top Bar ===== */
+    #topbar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 56px;
+      background: rgba(255,255,255,0.95);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      z-index: 1000;
+    }
+
+    #topbar .title {
+      font-size: 20px;
+      font-weight: 700;
+      color: #1a73e8;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    #topbar .title span { font-size: 24px; }
+
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    /* ===== Search ===== */
+    .search-box {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .search-box input {
+      width: 180px;
+      padding: 6px 10px 6px 30px;
+      border: 1px solid #dadce0;
+      border-radius: 8px;
+      font-size: 13px;
+      outline: none;
+      transition: all 0.3s;
+      background: #f1f3f4;
+    }
+
+    .search-box input:focus {
+      width: 240px;
+      border-color: #1a73e8;
+      background: white;
+      box-shadow: 0 2px 8px rgba(26,115,232,0.15);
+    }
+
+    .search-box::before {
+      content: '🔍';
+      position: absolute;
+      left: 8px;
+      font-size: 13px;
+      pointer-events: none;
+    }
+
+    .search-results {
+      position: absolute;
+      top: 100%;
+      left: 0; right: 0;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+      margin-top: 4px;
+      max-height: 200px;
+      overflow-y: auto;
+      z-index: 2000;
+      display: none;
+    }
+
+    .search-result-item {
+      padding: 8px 12px;
+      cursor: pointer;
+      font-size: 13px;
+      color: #202124;
+      border-bottom: 1px solid #f1f3f4;
+    }
+
+    .search-result-item:last-child { border-bottom: none; }
+    .search-result-item:hover { background: #f1f3f4; }
+
+    .search-result-item small {
+      color: #9aa0a6;
+      font-size: 11px;
+    }
+
+    /* ===== Stats Panel ===== */
+    #stats {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 13px;
+      color: #5f6368;
+    }
+
+    .stat-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .stat-num {
+      font-size: 18px;
+      font-weight: 700;
+      color: #1a73e8;
+    }
+
+    /* ===== Quote ===== */
+    #quote {
+      position: fixed;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      padding: 10px 24px;
+      border-radius: 20px;
+      font-size: 13px;
+      color: #5f6368;
+      font-style: italic;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+      z-index: 999;
+      max-width: 90vw;
+      text-align: center;
+    }
+
+    /* ===== Buttons ===== */
+    .btn {
+      padding: 6px 14px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .btn-primary { background: #1a73e8; color: white; }
+    .btn-primary:hover { background: #1557b0; }
+
+    .btn-outline {
+      background: transparent;
+      color: #5f6368;
+      border: 1px solid #dadce0;
+    }
+    .btn-outline:hover { background: #f1f3f4; border-color: #c0c0c0; }
+
+    .btn-danger { background: #ea4335; color: white; }
+    .btn-danger:hover { background: #c5221f; }
+
+    .btn-success { background: #34a853; color: white; }
+    .btn-success:hover { background: #2d8e47; }
+
+    /* ===== Map ===== */
+    #map {
+      position: fixed;
+      top: 56px;
+      left: 0; right: 0; bottom: 0;
+    }
+
+    /* ===== Custom Marker ===== */
+    .custom-marker { position: relative; }
+
+    .marker-dot {
+      width: 24px;
+      height: 24px;
+      background: #1a73e8;
+      border: 3px solid white;
+      border-radius: 50%;
+      box-shadow: 0 2px 8px rgba(26,115,232,0.4);
+      cursor: pointer;
+      transition: transform 0.2s;
+      animation: pulse 2s infinite;
+    }
+
+    .marker-dot:hover { transform: scale(1.3); }
+
+    @keyframes pulse {
+      0% { box-shadow: 0 2px 8px rgba(26,115,232,0.4); }
+      50% { box-shadow: 0 2px 16px rgba(26,115,232,0.7), 0 0 0 8px rgba(26,115,232,0.15); }
+      100% { box-shadow: 0 2px 8px rgba(26,115,232,0.4); }
+    }
+
+    /* ===== Popup ===== */
+    .leaflet-popup-content-wrapper {
+      border-radius: 12px !important;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15) !important;
+      padding: 0 !important;
+    }
+
+    .leaflet-popup-content {
+      margin: 0 !important;
+      min-width: 260px;
+    }
+
+    .leaflet-popup-tip {
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15) !important;
+    }
+
+    /* ===== Card ===== */
+    .card { padding: 20px; }
+
+    .card h3 {
+      font-size: 16px;
+      color: #202124;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .form-group { margin-bottom: 12px; }
+
+    .form-group label {
+      display: block;
+      font-size: 12px;
+      color: #5f6368;
+      margin-bottom: 4px;
+      font-weight: 500;
+    }
+
+    .form-group input,
+    .form-group textarea {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid #dadce0;
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .form-group input:focus,
+    .form-group textarea:focus {
+      border-color: #1a73e8;
+      box-shadow: 0 0 0 2px rgba(26,115,232,0.15);
+    }
+
+    .form-group textarea {
+      resize: vertical;
+      min-height: 60px;
+    }
+
+    .form-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      margin-top: 14px;
+    }
+
+    /* ===== Photo ===== */
+    .photo-preview {
+      width: 100%;
+      max-height: 160px;
+      object-fit: cover;
+      border-radius: 8px;
+      margin-top: 8px;
+    }
+
+    .photo-upload-area {
+      border: 2px dashed #dadce0;
+      border-radius: 8px;
+      padding: 12px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s;
+      color: #9aa0a6;
+      font-size: 13px;
+    }
+
+    .photo-upload-area:hover {
+      border-color: #1a73e8;
+      color: #1a73e8;
+    }
+
+    /* ===== Detail View ===== */
+    .detail-photo {
+      width: 100%;
+      max-height: 180px;
+      object-fit: cover;
+      border-radius: 8px;
+      margin-bottom: 12px;
+    }
+
+    .detail-meta {
+      font-size: 13px;
+      color: #5f6368;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .detail-note {
+      font-size: 14px;
+      color: #202124;
+      line-height: 1.5;
+      margin: 10px 0;
+      padding: 10px;
+      background: #f8f9fa;
+      border-radius: 8px;
+    }
+
+    .detail-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    /* ===== Language Toggle ===== */
+    .lang-toggle {
+      display: flex;
+      align-items: center;
+      background: #f1f3f4;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .lang-btn {
+      padding: 5px 10px;
+      font-size: 12px;
+      border: none;
+      cursor: pointer;
+      background: transparent;
+      color: #5f6368;
+      transition: all 0.2s;
+      font-weight: 500;
+    }
+
+    .lang-btn.active {
+      background: #1a73e8;
+      color: white;
+    }
+
+    #btnGlobe {
+      width: 34px;
+      height: 34px;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      border-radius: 50%;
+    }
+
+    /* ===== 3D Globe ===== */
+    #globe-container {
+      position: fixed;
+      top: 56px;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      display: none;
+      z-index: 500;
+      overflow: hidden;
+      background:
+        linear-gradient(150deg, #030611 0%, #07101d 42%, #120b1d 100%);
+      color: white;
+    }
+
+    #globe-viz {
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: grab;
+      touch-action: none;
+    }
+
+    #globe-viz:active { cursor: grabbing; }
+
+    #globe-viz canvas {
+      display: block;
+      outline: none;
+    }
+
+    .globe-panel {
+      position: absolute;
+      left: 18px;
+      bottom: 18px;
+      max-width: min(360px, calc(100% - 36px));
+      padding: 14px 16px;
+      border: 1px solid rgba(170,216,255,0.18);
+      border-radius: 8px;
+      background: rgba(4, 10, 18, 0.72);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      box-shadow: 0 18px 52px rgba(0,0,0,0.34);
+      pointer-events: none;
+    }
+
+    .globe-count {
+      font-size: 26px;
+      font-weight: 700;
+      line-height: 1;
+      color: #ffffff;
+    }
+
+    .globe-caption {
+      margin-top: 6px;
+      font-size: 13px;
+      line-height: 1.45;
+      color: rgba(255,255,255,0.76);
+    }
+
+    .globe-tip {
+      position: absolute;
+      right: 18px;
+      bottom: 18px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(170,216,255,0.14);
+      background: rgba(4, 10, 18, 0.48);
+      color: rgba(220,238,255,0.76);
+      font-size: 12px;
+      pointer-events: none;
+    }
+
+    /* ===== Import ===== */
+    #importInput { display: none; }
+
+    /* ===== Mobile ===== */
+    @media (max-width: 600px) {
+      #topbar { padding: 0 12px; height: 50px; }
+      #topbar .title { font-size: 16px; }
+      #map { top: 50px; }
+      #quote { font-size: 11px; padding: 8px 16px; }
+      .stat-num { font-size: 15px; }
+      #stats { gap: 10px; font-size: 12px; }
+      .leaflet-popup-content { min-width: 240px; }
+      .card { padding: 16px; }
+      .btn { padding: 5px 10px; font-size: 12px; }
+      .search-box input { width: 120px; font-size: 12px; }
+      .search-box input:focus { width: 160px; }
+      #btnGlobe { width: 28px; height: 28px; font-size: 15px; }
+      #globe-container { top: 50px; }
+      .globe-panel { left: 12px; right: 12px; bottom: 12px; max-width: none; padding: 12px 14px; }
+      .globe-count { font-size: 22px; }
+      .globe-tip { display: none; }
+      #credit { top: 56px; right: 12px; font-size: 11px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Portable Gate -->
+  <div id="gate" style="
+    position: fixed; inset: 0; z-index: 9999;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 20px;
+  ">
+    <div style="font-size: 48px;">🌍</div>
+    <div style="color: white; font-size: 18px; font-weight: 600;">My World Footprints</div>
+    <div style="color: rgba(255,255,255,0.7); font-size: 14px;">便携版 · 数据保存在本地文件</div>
+    <button onclick="loadDataFile()" style="
+      padding: 12px 32px; border: none; border-radius: 12px; font-size: 15px;
+      background: white; color: #667eea; font-weight: 600; cursor: pointer;
+    ">📂 打开数据文件</button>
+    <button onclick="startFresh()" style="
+      padding: 10px 24px; border: 2px solid rgba(255,255,255,0.5); border-radius: 12px; font-size: 14px;
+      background: transparent; color: white; cursor: pointer;
+    ">✨ 新建空白数据</button>
+    <div style="color: rgba(255,255,255,0.65); font-size: 13px; margin-top: 8px; text-align: center; line-height: 1.6;">献给耐心、善良、博学、乐观的Sara老师 ❤️</div>
+  </div>
+
+  <!-- Save Indicator -->
+  <div id="saveIndicator" style="position:fixed;top:68px;left:50%;transform:translateX(-50%);background:#34a853;color:white;padding:4px 12px;border-radius:12px;font-size:12px;opacity:0;transition:opacity 0.3s;z-index:1000;">✓ 已保存</div>
+
+  <!-- Top Bar -->
+  <div id="topbar">
+    <div class="title">
+      <span>🌍</span>
+      <span id="titleText">My World Footprints</span>
+    </div>
+    <div class="topbar-right">
+      <div class="search-box">
+        <input type="text" id="searchInput" placeholder="Search city..." oninput="onSearch(event)" onkeydown="if(event.key==='Enter')doSearch()" onfocus="onSearch(event)" />
+        <div class="search-results" id="searchResults"></div>
+      </div>
+      <div id="stats">
+        <div class="stat-item">
+          <span class="stat-num" id="cityCount">0</span>
+          <span id="labelCities">cities</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-num" id="countryCount">0</span>
+          <span id="labelCountries">countries</span>
+        </div>
+      </div>
+      <div class="lang-toggle">
+        <button class="lang-btn active" id="langEn" onclick="setLang('en')">EN</button>
+        <button class="lang-btn" id="langZh" onclick="setLang('zh')">中</button>
+      </div>
+      <button class="btn btn-primary" onclick="toggleGlobe()" id="btnGlobe" title="Toggle 3D Globe">🌐</button>
+      <button class="btn btn-outline" onclick="exportData()" id="btnExport">📤 Export</button>
+      <button class="btn btn-outline" onclick="document.getElementById('importInput').click()" id="btnImport">📥 Import</button>
+      <input type="file" id="importInput" accept=".json" onchange="importData(event)">
+    </div>
+  </div>
+
+  <!-- Map -->
+  <div id="map"></div>
+  <div id="globe-container">
+    <div id="globe-viz" aria-label="3D footprint globe"></div>
+    <div class="globe-panel">
+      <div class="globe-count" id="globeCount">0 footprints</div>
+      <div class="globe-caption" id="globeCaption">Drag the globe to revisit every place.</div>
+    </div>
+    <div class="globe-tip">Drag to rotate</div>
+  </div>
+  <div id="loading" style="position:fixed;top:56px;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.85);z-index:998;transition:opacity 0.5s;">
+    <div style="text-align:center;">
+      <div style="font-size:48px;margin-bottom:12px;">🌍</div>
+      <div style="color:#5f6368;font-size:15px;">Loading map...</div>
+    </div>
+  </div>
+
+  <!-- Quote -->
+  <div id="quote"></div>
+  <div id="credit" style="position:fixed;top:68px;right:20px;font-size:16px;font-weight:700;color:#202124;z-index:999;">Made for Sara</div>
+
+  <!-- Splash Screen -->
+  <div id="splash" style="
+    position: fixed; inset: 0; z-index: 9998;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: none; align-items: center; justify-content: center;
+    flex-direction: column; gap: 16px;
+    opacity: 0; transition: opacity 0.8s ease;
+  ">
+    <div style="font-size: 52px;">🌍</div>
+    <div style="color: white; font-size: 20px; font-weight: 700; letter-spacing: 1px;">My World Footprints</div>
+    <div style="width: 40px; height: 2px; background: rgba(255,255,255,0.4); border-radius: 1px;"></div>
+    <div style="color: rgba(255,255,255,0.75); font-size: 14px; text-align: center; line-height: 1.8;">
+      献给耐心、善良、博学、乐观的Sara老师 ❤️
+    </div>
+  </div>
+
+  <script src="libs/leaflet.min.js"></script>
+  <script src="libs/globe.gl.min.js"></script>
+  <script>
+    // ===== File-based Storage =====
+    let footprintData = [];
+    let fileHandle = null;
+
+    // Load data — from data/footprints.json via fetch
+    async function loadFootprints() {
+      try {
+        const resp = await fetch('data/footprints.json?' + Date.now());
+        if (resp.ok) {
+          footprintData = await resp.json();
+        }
+      } catch (e) {
+        footprintData = [];
+      }
+      return footprintData;
+    }
+
+    // Save to file — use File System Access API or download
+    async function saveToFile() {
+      // Try File System Access API (Chrome/Edge)
+      if (fileHandle) {
+        try {
+          const writable = await fileHandle.createWritable();
+          await writable.write(JSON.stringify(footprintData, null, 2));
+          await writable.close();
+          showSaveIndicator();
+          return;
+        } catch (e) { /* fallback below */ }
+      }
+      // Fallback: auto-download
+      const blob = new Blob([JSON.stringify(footprintData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'footprints.json';
+      a.click();
+      URL.revokeObjectURL(url);
+      showSaveIndicator();
+    }
+
+    async function saveFootprintToDB(fp) {
+      const idx = footprintData.findIndex(x => x.id === fp.id);
+      if (idx >= 0) footprintData[idx] = fp;
+      else footprintData.push(fp);
+      await saveToFile();
+    }
+
+    async function deleteFootprintFromDB(id) {
+      footprintData = footprintData.filter(x => x.id !== id);
+      await saveToFile();
+    }
+
+    async function clearAllFootprints() {
+      footprintData = [];
+      await saveToFile();
+    }
+
+    function showSaveIndicator() {
+      const el = document.getElementById('saveIndicator');
+      if (!el) return;
+      el.style.opacity = '1';
+      setTimeout(() => { el.style.opacity = '0'; }, 1500);
+    }
+
+    // ===== Portable Gate =====
+    async function loadDataFile() {
+      if ('showOpenFilePicker' in window) {
+        try {
+          [fileHandle] = await window.showOpenFilePicker({
+            types: [{ description: 'Footprints Data', accept: { 'application/json': ['.json'] } }],
+            multiple: false
+          });
+          const file = await fileHandle.getFile();
+          const text = await file.text();
+          footprintData = JSON.parse(text);
+          document.getElementById('gate').style.display = 'none';
+          showSplashAndInit();
+        } catch (e) {
+          // User cancelled
+        }
+      } else {
+        // Fallback: use input
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+        input.onchange = async (e) => {
+          const file = e.target.files[0];
+          const text = await file.text();
+          footprintData = JSON.parse(text);
+          document.getElementById('gate').style.display = 'none';
+          showSplashAndInit();
+        };
+        input.click();
+      }
+    }
+
+    async function startFresh() {
+      footprintData = [];
+      // Try to create new file
+      if ('showSaveFilePicker' in window) {
+        try {
+          fileHandle = await window.showSaveFilePicker({
+            suggestedName: 'footprints.json',
+            types: [{ description: 'Footprints Data', accept: { 'application/json': ['.json'] } }]
+          });
+        } catch (e) { /* User cancelled */ }
+      }
+      document.getElementById('gate').style.display = 'none';
+      showSplashAndInit();
+    }
+
+    function showSplashAndInit() {
+      const splash = document.getElementById('splash');
+      splash.style.display = 'flex';
+      requestAnimationFrame(() => { splash.style.opacity = '1'; });
+      setTimeout(() => {
+        splash.style.opacity = '0';
+        setTimeout(() => { splash.style.display = 'none'; }, 800);
+      }, 2000);
+      renderMarkers();
+    }
+
+    // ===== i18n =====
+    const i18n = {
+      en: {
+        title: 'My World Footprints',
+        cities: 'cities',
+        countries: 'countries',
+        addTitle: 'Add Footprint',
+        editTitle: 'Edit Footprint',
+        city: 'City',
+        country: 'Country',
+        date: 'Date',
+        note: 'Note (What made it special?)',
+        photo: 'Photo',
+        photoHint: 'Click to upload a photo',
+        save: 'Save',
+        cancel: 'Cancel',
+        delete: 'Delete',
+        edit: 'Edit',
+        confirmDelete: 'Delete this footprint?',
+        importSuccess: 'Imported {n} footprints',
+        importNothing: 'No new footprints to import',
+        empty: 'Click anywhere on the map to add your first footprint!',
+        quote: '"The world is a book and those who do not travel read only one page." — Saint Augustine',
+        search: 'Search city...',
+      },
+      zh: {
+        title: '我的世界足迹',
+        cities: '座城市',
+        countries: '个国家',
+        addTitle: '添加足迹',
+        editTitle: '编辑足迹',
+        city: '城市',
+        country: '国家',
+        date: '日期',
+        note: '备注（最难忘的是什么？）',
+        photo: '照片',
+        photoHint: '点击上传照片',
+        save: '保存',
+        cancel: '取消',
+        delete: '删除',
+        edit: '编辑',
+        confirmDelete: '确定删除这条足迹？',
+        importSuccess: '成功导入 {n} 条足迹',
+        importNothing: '没有新的足迹需要导入',
+        empty: '点击地图任意位置，添加你的第一条足迹！',
+        quote: '"世界是一本书，不旅行的人只读了其中一页。" — 圣奥古斯丁',
+        search: '搜索城市...',
+      }
+    };
+
+    let lang = localStorage.getItem('mapLang') || 'en';
+    let markers = [];
+    let map, markerLayer;
+
+    // ===== Init Map =====
+    map = L.map('map', {
+      center: [30, 10],
+      zoom: 2,
+      minZoom: 2,
+      maxZoom: 18,
+      zoomControl: false
+    });
+
+    L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+    // Gaode - fast in China, all zoom levels
+    const gaodeLayer = L.tileLayer('https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}', {
+      subdomains: ['1', '2', '3', '4'],
+      maxZoom: 18,
+      attribution: '&copy; 高德地图 AutoNavi'
+    }).addTo(map);
+
+    // OSM - global detail for foreign areas
+    const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      subdomains: 'abc',
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap'
+    });
+
+    // Auto-switch: Gaode in China, OSM abroad
+    map.on('moveend', function() {
+      const center = map.getCenter();
+      const inChina = center.lat >= 3 && center.lat <= 54 && center.lng >= 73 && center.lng <= 135;
+      if (inChina && !map.hasLayer(gaodeLayer)) {
+        map.removeLayer(osmLayer);
+        gaodeLayer.addTo(map);
+      } else if (!inChina && !map.hasLayer(osmLayer)) {
+        map.removeLayer(gaodeLayer);
+        osmLayer.addTo(map);
+      }
+    });
+
+    markerLayer = L.layerGroup().addTo(map);
+
+    // ===== Unique ID =====
+    function genId(lat, lng, date) {
+      return `${lat.toFixed(4)}_${lng.toFixed(4)}_${date}`;
+    }
+
+    // ===== Render =====
+    async function renderMarkers() {
+      markers = footprintData;
+      markerLayer.clearLayers();
+      markers.forEach((m) => {
+        const icon = L.divIcon({
+          className: 'custom-marker',
+          html: '<div class="marker-dot"></div>',
+          iconSize: [24, 24],
+          iconAnchor: [12, 12]
+        });
+        const marker = L.marker([m.lat, m.lng], { icon }).addTo(markerLayer);
+        marker.on('click', () => showDetail(m));
+      });
+      updateStats();
+      if (isGlobeView) updateGlobePoints();
+    }
+
+    function updateStats() {
+      const cities = new Set(markers.map(m => m.city)).size;
+      const countries = new Set(markers.map(m => m.country)).size;
+      document.getElementById('cityCount').textContent = cities;
+      document.getElementById('countryCount').textContent = countries;
+      const t = i18n[lang];
+      document.getElementById('labelCities').textContent = t.cities;
+      document.getElementById('labelCountries').textContent = t.countries;
+    }
+
+    // ===== Add Form =====
+    function showAddForm(lat, lng) {
+      const t = i18n[lang];
+      const html = `
+        <div class="card">
+          <h3>📍 ${t.addTitle}</h3>
+          <div class="form-group">
+            <label>${t.city}</label>
+            <input type="text" id="fCity" placeholder="e.g. Paris" />
+          </div>
+          <div class="form-group">
+            <label>${t.country}</label>
+            <input type="text" id="fCountry" placeholder="e.g. France" />
+          </div>
+          <div class="form-group">
+            <label>${t.date}</label>
+            <input type="date" id="fDate" value="${new Date().toISOString().slice(0,10)}" />
+          </div>
+          <div class="form-group">
+            <label>${t.note}</label>
+            <textarea id="fNote" rows="3" placeholder="..."></textarea>
+          </div>
+          <div class="form-group">
+            <label>${t.photo}</label>
+            <div class="photo-upload-area" id="photoArea" onclick="document.getElementById('fPhoto').click()">
+              📷 ${t.photoHint}
+            </div>
+            <input type="file" id="fPhoto" accept="image/*" style="display:none" onchange="previewPhoto(event)">
+            <img id="photoPreview" class="photo-preview" style="display:none" />
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-outline" onclick="event.stopPropagation();map.closePopup()">${t.cancel}</button>
+            <button class="btn btn-primary" onclick="saveFootprint(${lat}, ${lng})">${t.save}</button>
+          </div>
+        </div>
+      `;
+      L.popup({ maxWidth: 320, closeButton: true })
+        .setLatLng([lat, lng])
+        .setContent(html)
+        .openOn(map);
+      currentPopup = map._popup;
+    }
+
+    // ===== Photo =====
+    let photoBase64 = null;
+    function previewPhoto(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      // Compress image before saving
+      const reader = new FileReader();
+      reader.onload = function(ev) {
+        const img = new Image();
+        img.onload = function() {
+          const canvas = document.createElement('canvas');
+          const MAX = 800;
+          let w = img.width, h = img.height;
+          if (w > MAX || h > MAX) {
+            if (w > h) { h = h * MAX / w; w = MAX; }
+            else { w = w * MAX / h; h = MAX; }
+          }
+          canvas.width = w;
+          canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          photoBase64 = canvas.toDataURL('image/jpeg', 0.7);
+          const preview = document.getElementById('photoPreview');
+          preview.src = photoBase64;
+          preview.style.display = 'block';
+          document.getElementById('photoArea').style.display = 'none';
+        };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // ===== Save =====
+    async function saveFootprint(lat, lng) {
+      const city = document.getElementById('fCity').value.trim();
+      const country = document.getElementById('fCountry').value.trim();
+      const date = document.getElementById('fDate').value;
+      const note = document.getElementById('fNote').value.trim();
+
+      if (!city) { document.getElementById('fCity').focus(); return; }
+
+      const footprint = {
+        id: genId(lat, lng, date),
+        lat, lng,
+        city: city || 'Unknown',
+        country: country || 'Unknown',
+        date: date || new Date().toISOString().slice(0,10),
+        note,
+        photo: photoBase64,
+        createdAt: Date.now()
+      };
+
+      await saveFootprintToDB(footprint);
+      photoBase64 = null;
+      map.closePopup();
+      await renderMarkers();
+      map.flyTo([lat, lng], Math.max(map.getZoom(), 5), { duration: 1 });
+    }
+
+    // ===== Detail =====
+    function showDetail(m) {
+      const t = i18n[lang];
+      const photoHtml = m.photo ? `<img src="${m.photo}" class="detail-photo" />` : '';
+      const html = `
+        <div class="card">
+          ${photoHtml}
+          <div class="detail-meta">📍 <strong>${m.city}</strong>${m.country ? ', ' + m.country : ''}</div>
+          <div class="detail-meta">📅 ${m.date}</div>
+          ${m.note ? `<div class="detail-note">${m.note}</div>` : ''}
+          <div class="detail-actions">
+            <button class="btn btn-outline" onclick='event.stopPropagation();editFootprint("${m.id}")'>✏️ ${t.edit}</button>
+            <button class="btn btn-danger" onclick='event.stopPropagation();deleteFootprint("${m.id}")'>🗑️ ${t.delete}</button>
+          </div>
+        </div>
+      `;
+      L.popup({ maxWidth: 320, closeButton: true })
+        .setLatLng([m.lat, m.lng])
+        .setContent(html)
+        .openOn(map);
+    }
+
+    // ===== Edit =====
+    async function editFootprint(id) {
+      const m = markers.find(x => x.id === id);
+      if (!m) return;
+      const t = i18n[lang];
+      photoBase64 = m.photo || null;
+      const photoPreviewHtml = m.photo
+        ? `<img id="photoPreview" class="photo-preview" src="${m.photo}" />`
+        : `<img id="photoPreview" class="photo-preview" style="display:none" />`;
+      const photoAreaDisplay = m.photo ? 'none' : 'block';
+
+      const html = `
+        <div class="card">
+          <h3>✏️ ${t.editTitle}</h3>
+          <div class="form-group">
+            <label>${t.city}</label>
+            <input type="text" id="fCity" value="${m.city}" />
+          </div>
+          <div class="form-group">
+            <label>${t.country}</label>
+            <input type="text" id="fCountry" value="${m.country}" />
+          </div>
+          <div class="form-group">
+            <label>${t.date}</label>
+            <input type="date" id="fDate" value="${m.date}" />
+          </div>
+          <div class="form-group">
+            <label>${t.note}</label>
+            <textarea id="fNote" rows="3">${m.note || ''}</textarea>
+          </div>
+          <div class="form-group">
+            <label>${t.photo}</label>
+            <div class="photo-upload-area" id="photoArea" style="display:${photoAreaDisplay}" onclick="document.getElementById('fPhoto').click()">
+              📷 ${t.photoHint}
+            </div>
+            <input type="file" id="fPhoto" accept="image/*" style="display:none" onchange="previewPhoto(event)">
+            ${photoPreviewHtml}
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-outline" onclick="event.stopPropagation();map.closePopup()">${t.cancel}</button>
+            <button class="btn btn-primary" onclick="updateFootprint('${id}')">${t.save}</button>
+          </div>
+        </div>
+      `;
+      L.popup({ maxWidth: 320, closeButton: true })
+        .setLatLng([m.lat, m.lng])
+        .setContent(html)
+        .openOn(map);
+    }
+
+    async function updateFootprint(id) {
+      const m = markers.find(x => x.id === id);
+      if (!m) return;
+      const city = document.getElementById('fCity').value.trim();
+      const country = document.getElementById('fCountry').value.trim();
+      const date = document.getElementById('fDate').value;
+      const note = document.getElementById('fNote').value.trim();
+
+      if (!city) { document.getElementById('fCity').focus(); return; }
+
+      const updated = {
+        ...m,
+        city: city || 'Unknown',
+        country: country || 'Unknown',
+        date: date || m.date,
+        note,
+        photo: photoBase64,
+        id: genId(m.lat, m.lng, date || m.date)
+      };
+
+      await saveFootprintToDB(updated);
+      photoBase64 = null;
+      map.closePopup();
+      await renderMarkers();
+    }
+
+    // ===== Delete =====
+    async function deleteFootprint(id) {
+      const t = i18n[lang];
+      if (!confirm(t.confirmDelete)) return;
+      await deleteFootprintFromDB(id);
+      map.closePopup();
+      await renderMarkers();
+    }
+
+    // ===== Search =====
+    let searchTimer = null;
+
+    function onSearch(e) {
+      const q = e.target.value.trim().toLowerCase();
+      const resultsEl = document.getElementById('searchResults');
+      if (!q) { resultsEl.style.display = 'none'; return; }
+
+      // First search existing markers
+      const localHits = markers.filter(m =>
+        m.city.toLowerCase().includes(q) || m.country.toLowerCase().includes(q)
+      ).slice(0, 5).map(m => ({
+        lat: m.lat, lng: m.lng,
+        label: `${m.city}${m.country ? ', ' + m.country : ''}`,
+        sub: m.date,
+        type: 'local'
+      }));
+
+      // Also geocode from Nominatim
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(async () => {
+        try {
+          const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(e.target.value)}&limit=5`);
+          const geoHits = (await resp.json()).map(r => ({
+            lat: parseFloat(r.lat), lng: parseFloat(r.lon),
+            label: r.display_name.split(',').slice(0, 2).join(','),
+            sub: r.type,
+            type: 'geo'
+          }));
+          showSearchResults([...localHits, ...geoHits]);
+        } catch(err) {
+          showSearchResults(localHits);
+        }
+      }, 400);
+
+      showSearchResults(localHits);
+    }
+
+    function showSearchResults(results) {
+      const el = document.getElementById('searchResults');
+      if (results.length === 0) { el.style.display = 'none'; return; }
+      el.innerHTML = results.map((r, i) =>
+        `<div class="search-result-item" onclick="jumpTo(${r.lat}, ${r.lng})">${r.label}<br><small>${r.sub}</small></div>`
+      ).join('');
+      el.style.display = 'block';
+    }
+
+    function jumpTo(lat, lng) {
+      document.getElementById('searchResults').style.display = 'none';
+      document.getElementById('searchInput').value = '';
+      map.flyTo([lat, lng], 6, { duration: 1.2 });
+      // Open popup if there's a marker here
+      const existing = markers.find(m => Math.abs(m.lat - lat) < 0.01 && Math.abs(m.lng - lng) < 0.01);
+      if (existing) {
+        setTimeout(() => showDetail(existing), 1300);
+      }
+    }
+
+    // Close search results on click outside
+    document.addEventListener('click', function(e) {
+      if (!e.target.closest('.search-box')) {
+        document.getElementById('searchResults').style.display = 'none';
+      }
+    });
+
+    let lastPopupClose = 0;
+    map.on('popupclose', function() {
+      currentPopup = null;
+      photoBase64 = null;
+      lastPopupClose = Date.now();
+      const card = document.querySelector('.leaflet-popup-content');
+      if (card) card.innerHTML = '';
+    });
+
+    // ===== Map Click =====
+    map.on('click', function(e) {
+      // If a popup was just closed (within 100ms), don't open a new one
+      if (Date.now() - lastPopupClose < 100) return;
+      showAddForm(e.latlng.lat, e.latlng.lng);
+    });
+
+    // ===== Export =====
+    async function exportData() {
+      const data = footprintData;
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `footprints_${new Date().toISOString().slice(0,10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // ===== Import =====
+    async function importData(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = async function(ev) {
+        try {
+          const data = JSON.parse(ev.target.result);
+          if (!Array.isArray(data)) return;
+          const t = i18n[lang];
+          let imported = 0;
+          for (const item of data) {
+            if (!item.lat || !item.lng) continue;
+            const id = item.id || genId(item.lat, item.lng, item.date || '');
+            // Dedup check
+            const existing = footprintData.find(x => x.id === id);
+            if (existing) continue;
+
+            await saveFootprintToDB({
+              id,
+              lat: item.lat,
+              lng: item.lng,
+              city: item.city || 'Unknown',
+              country: item.country || 'Unknown',
+              date: item.date || '',
+              note: item.note || '',
+              photo: item.photo || null,
+              createdAt: item.createdAt || Date.now()
+            });
+            imported++;
+          }
+          await renderMarkers();
+          alert(imported > 0 ? t.importSuccess.replace('{n}', imported) : t.importNothing);
+        } catch(err) {
+          console.error('Import error:', err);
+        }
+      };
+      reader.readAsText(file);
+      e.target.value = '';
+    }
+
+    // ===== Language =====
+    function setLang(l) {
+      lang = l;
+      localStorage.setItem('mapLang', l);
+      document.getElementById('langEn').classList.toggle('active', l === 'en');
+      document.getElementById('langZh').classList.toggle('active', l === 'zh');
+      const t = i18n[l];
+      document.getElementById('titleText').textContent = t.title;
+      document.getElementById('quote').textContent = t.quote;
+      document.getElementById('btnExport').innerHTML = l === 'en' ? '📤 Export' : '📤 导出';
+      document.getElementById('btnImport').innerHTML = l === 'en' ? '📥 Import' : '📥 导入';
+      document.getElementById('searchInput').placeholder = t.search;
+      updateStats();
+    }
+
+    // ===== Hide loading =====
+    map.whenReady(() => {
+      setTimeout(() => {
+        const ld = document.getElementById('loading');
+        ld.style.opacity = '0';
+        setTimeout(() => ld.style.display = 'none', 500);
+      }, 800);
+    });
+
+    // ===== Globe (Globe.gl) =====
+    let isGlobeView = false;
+    const globeState = {
+      globe: null,
+      container: null,
+      ready: false,
+      autoRotate: true
+    };
+
+    function initGlobe() {
+      if (globeState.ready) return;
+      const container = document.getElementById('globe-viz');
+      globeState.container = container;
+
+      if (!window.Globe) {
+        container.innerHTML = '<div style="height:100%;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.78);font-size:14px;text-align:center;padding:24px;">3D globe library failed to load. Check your network and refresh.</div>';
+        updateGlobeHud();
+        globeState.ready = true;
+        return;
+      }
+
+      const globe = Globe()(container)
+        .backgroundColor('rgba(0,0,0,0)')
+        .globeImageUrl('https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-blue-marble.jpg')
+        .bumpImageUrl('https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-topology.png')
+        .showAtmosphere(true)
+        .atmosphereColor('#77d5ff')
+        .atmosphereAltitude(0.18)
+        .pointAltitude(d => d.size)
+        .pointRadius(d => d.radius)
+        .pointResolution(24)
+        .pointColor(d => d.color)
+        .pointsMerge(false)
+        .pointLabel(d => `<div style="background:rgba(4,10,18,0.86);border:1px solid rgba(170,216,255,0.22);color:white;padding:7px 10px;border-radius:8px;font:13px 'Segoe UI',sans-serif;box-shadow:0 12px 30px rgba(0,0,0,0.26);">${d.label}</div>`)
+        .onPointClick(d => openGlobeFootprint(d.footprint));
+
+      const controls = globe.controls();
+      controls.autoRotate = globeState.autoRotate;
+      controls.autoRotateSpeed = 0.55;
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.08;
+      controls.minDistance = 180;
+      controls.maxDistance = 520;
+
+      globe.pointOfView({ lat: 22, lng: 112, altitude: 2.2 }, 0);
+      globeState.globe = globe;
+      globeState.ready = true;
+      window.addEventListener('resize', resizeGlobe);
+      resizeGlobe();
+      updateGlobePoints();
+    }
+
+    function toggleGlobe() {
+      isGlobeView = !isGlobeView;
+      const mapEl = document.getElementById('map');
+      const globeEl = document.getElementById('globe-container');
+      const btn = document.getElementById('btnGlobe');
+
+      if (isGlobeView) {
+        initGlobe();
+        mapEl.style.display = 'none';
+        globeEl.style.display = 'block';
+        btn.textContent = '3D';
+        btn.title = 'Back to flat map';
+        updateGlobePoints();
+        resizeGlobe();
+      } else {
+        globeEl.style.display = 'none';
+        mapEl.style.display = 'block';
+        btn.textContent = '🌐';
+        btn.title = 'Toggle 3D Globe';
+        map.invalidateSize();
+      }
+    }
+
+    function resizeGlobe() {
+      if (!globeState.globe || !globeState.container) return;
+      const rect = globeState.container.getBoundingClientRect();
+      globeState.globe.width(Math.max(1, Math.round(rect.width)));
+      globeState.globe.height(Math.max(1, Math.round(rect.height)));
+    }
+
+    function updateGlobeHud() {
+      const countEl = document.getElementById('globeCount');
+      const captionEl = document.getElementById('globeCaption');
+      if (!countEl || !captionEl) return;
+      const count = markers.length;
+      countEl.textContent = `${count} ${count === 1 ? 'footprint' : 'footprints'}`;
+      captionEl.textContent = count
+        ? 'Each light marks a place saved on the map. Drag the globe to turn the journey.'
+        : 'Add footprints on the map, then return here to see the journey light up.';
+    }
+
+    function updateGlobePoints() {
+      if (!globeState.globe) {
+        updateGlobeHud();
+        return;
+      }
+      const points = markers.map((m, i) => ({
+        lat: m.lat,
+        lng: m.lng,
+        radius: 0.32 + Math.min(0.26, markers.length * 0.01),
+        size: 0.012 + (i % 3) * 0.004,
+        color: i % 2 === 0 ? 'rgba(255, 232, 132, 0.95)' : 'rgba(91, 214, 255, 0.9)',
+        label: `${m.city || 'Footprint'}${m.country ? ', ' + m.country : ''}`,
+        footprint: m
+      }));
+      globeState.globe.pointsData(points);
+      updateGlobeHud();
+    }
+
+    function openGlobeFootprint(m) {
+      if (!m) return;
+      toggleGlobe();
+      setTimeout(() => {
+        map.flyTo([m.lat, m.lng], 6, { duration: 1 });
+        setTimeout(() => showDetail(m), 900);
+      }, 250);
+    }
+
+    // ===== Init =====
+    setLang(lang);
+  </script>
+</body>
+</html>
